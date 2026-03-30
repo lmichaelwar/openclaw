@@ -3,6 +3,16 @@ import type { ErrorObject, ValidateFunction } from "ajv";
 import { appendAllowedValuesHint, summarizeAllowedValues } from "../config/allowed-values.js";
 import { sanitizeTerminalText } from "../terminal/safe-text.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] plugins/schema-validator: ${message}`);
+}
+
+const schemaValidatorModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 const require = createRequire(import.meta.url);
 type AjvLike = {
   addFormat: (
@@ -17,6 +27,10 @@ type AjvLike = {
   compile: (schema: Record<string, unknown>) => ValidateFunction;
 };
 const ajvSingletons = new Map<"default" | "defaults", AjvLike>();
+
+logStartupTrace(
+  `module evaluation complete at ${Date.now() - schemaValidatorModuleTraceStart}ms`,
+);
 
 function getAjv(mode: "default" | "defaults"): AjvLike {
   const cached = ajvSingletons.get(mode);
