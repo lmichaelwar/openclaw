@@ -7,6 +7,16 @@ import {
 import type { PluginRecord } from "./registry.js";
 import { defaultSlotIdForKey } from "./slots.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] plugins/config-state: ${message}`);
+}
+
+const configStateModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 export type NormalizedPluginsConfig = {
   enabled: boolean;
   allow: string[];
@@ -31,6 +41,8 @@ export type NormalizedPluginsConfig = {
     }
   >;
 };
+
+logStartupTrace(`module evaluation complete at ${Date.now() - configStateModuleTraceStart}ms`);
 
 export function normalizePluginId(id: string): string {
   const trimmed = id.trim();
