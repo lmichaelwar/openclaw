@@ -25,10 +25,24 @@ import type {
   PluginOrigin,
 } from "./types.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] plugins/manifest-registry: ${message}`);
+}
+
+const manifestRegistryModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 type SeenIdEntry = {
   candidate: PluginCandidate;
   recordIndex: number;
 };
+
+logStartupTrace(
+  `module evaluation complete at ${Date.now() - manifestRegistryModuleTraceStart}ms`,
+);
 
 // Canonicalize identical physical plugin roots with the most explicit source.
 // This only applies when multiple candidates resolve to the same on-disk plugin.
