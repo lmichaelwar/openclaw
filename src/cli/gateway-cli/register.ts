@@ -85,9 +85,19 @@ export async function registerGatewayCli(program: Command) {
   const trace = (message: string) => {
     logStartupTrace(`${message} at ${Date.now() - traceStart}ms`);
   };
+  const timedImport = async <T>(label: string, loader: () => Promise<T>): Promise<T> => {
+    const importStart = Date.now();
+    const mod = await loader();
+    trace(`${label} loaded in ${Date.now() - importStart}ms`);
+    return mod;
+  };
   trace("registerGatewayCli begin");
   const [{ addGatewayRunCommand }, { addGatewayServiceCommands }, { gatewayCallOpts }] =
-    await Promise.all([import("./run.js"), import("../daemon-cli.js"), import("./call.js")]);
+    await Promise.all([
+      timedImport("./run.js", () => import("./run.js")),
+      timedImport("../daemon-cli.js", () => import("../daemon-cli.js")),
+      timedImport("./call.js", () => import("./call.js")),
+    ]);
   trace("initial gateway imports loaded");
   const gateway = addGatewayRunCommand(
     program
