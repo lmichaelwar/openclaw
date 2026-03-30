@@ -1,3 +1,13 @@
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] config/config: ${message}`);
+}
+
+const configModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 export {
   clearConfigCache,
   ConfigRuntimeRefreshError,
@@ -26,3 +36,5 @@ export {
   validateConfigObjectRawWithPlugins,
   validateConfigObjectWithPlugins,
 } from "./validation.js";
+
+logStartupTrace(`module evaluation complete at ${Date.now() - configModuleTraceStart}ms`);
