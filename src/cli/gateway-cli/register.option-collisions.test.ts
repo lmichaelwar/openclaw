@@ -120,7 +120,7 @@ describe("gateway register option collisions", () => {
     ({ registerGatewayCli } = await import("./register.js"));
     sharedProgram = new Command();
     sharedProgram.exitOverride();
-    registerGatewayCli(sharedProgram);
+    await registerGatewayCli(sharedProgram);
   });
 
   beforeEach(() => {

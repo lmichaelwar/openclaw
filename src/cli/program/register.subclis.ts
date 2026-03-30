@@ -61,7 +61,7 @@ const entries: SubCliEntry[] = [
     hasSubcommands: true,
     register: async (program) => {
       const mod = await import("../gateway-cli.js");
-      mod.registerGatewayCli(program);
+      await mod.registerGatewayCli(program);
     },
   },
   {

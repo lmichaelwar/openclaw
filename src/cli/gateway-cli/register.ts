@@ -81,9 +81,14 @@ async function renderCostUsageSummary(
 }
 
 export async function registerGatewayCli(program: Command) {
-  logStartupTrace("registerGatewayCli begin");
+  const traceStart = Date.now();
+  const trace = (message: string) => {
+    logStartupTrace(`${message} at ${Date.now() - traceStart}ms`);
+  };
+  trace("registerGatewayCli begin");
   const [{ addGatewayRunCommand }, { addGatewayServiceCommands }, { gatewayCallOpts }] =
     await Promise.all([import("./run.js"), import("../daemon-cli.js"), import("./call.js")]);
+  trace("initial gateway imports loaded");
   const gateway = addGatewayRunCommand(
     program
       .command("gateway")
@@ -99,14 +104,17 @@ export async function registerGatewayCli(program: Command) {
           ])}\n\n${theme.muted("Docs:")} ${formatDocsLink("/cli/gateway", "docs.openclaw.ai/cli/gateway")}\n`,
       ),
   );
+  trace("gateway root command created");
 
   addGatewayRunCommand(
     gateway.command("run").description("Run the WebSocket Gateway (foreground)"),
   );
+  trace("gateway run command attached");
 
   addGatewayServiceCommands(gateway, {
     statusDescription: "Show gateway service status + probe the Gateway",
   });
+  trace("gateway service commands attached");
 
   gatewayCallOpts(
     gateway
@@ -306,5 +314,5 @@ export async function registerGatewayCli(program: Command) {
         }
       }, "gateway discover failed");
     });
-  logStartupTrace("registerGatewayCli complete");
+  trace("registerGatewayCli complete");
 }

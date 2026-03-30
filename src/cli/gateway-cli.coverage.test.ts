@@ -99,10 +99,10 @@ vi.mock("../infra/ports.js", () => ({
 const { registerGatewayCli } = await import("./gateway-cli.js");
 let gatewayProgram: Command;
 
-function createGatewayProgram() {
+async function createGatewayProgram() {
   const program = new Command();
   program.exitOverride();
-  registerGatewayCli(program);
+  await registerGatewayCli(program);
   return program;
 }
 
@@ -115,8 +115,8 @@ async function expectGatewayExit(args: string[]) {
 }
 
 describe("gateway-cli coverage", () => {
-  beforeEach(() => {
-    gatewayProgram = createGatewayProgram();
+  beforeEach(async () => {
+    gatewayProgram = await createGatewayProgram();
     inspectPortUsage.mockClear();
     formatPortDiagnostics.mockClear();
   });
