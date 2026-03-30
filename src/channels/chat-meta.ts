@@ -3,7 +3,19 @@ import type { PluginPackageChannel } from "../plugins/manifest.js";
 import { CHAT_CHANNEL_ORDER, type ChatChannelId } from "./ids.js";
 import type { ChannelMeta } from "./plugins/types.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] channels/chat-meta: ${message}`);
+}
+
+const chatMetaModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 export type ChatChannelMeta = ChannelMeta;
+
+logStartupTrace(`module evaluation complete at ${Date.now() - chatMetaModuleTraceStart}ms`);
 
 const CHAT_CHANNEL_ID_SET = new Set<string>(CHAT_CHANNEL_ORDER);
 

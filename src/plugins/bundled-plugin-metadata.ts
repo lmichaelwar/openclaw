@@ -20,6 +20,16 @@ import {
 } from "./sdk-alias.js";
 import type { PluginConfigUiHint } from "./types.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] plugins/bundled-plugin-metadata: ${message}`);
+}
+
+const bundledPluginMetadataModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 const OPENCLAW_PACKAGE_ROOT =
   resolveLoaderPackageRoot({
     modulePath: fileURLToPath(import.meta.url),
@@ -69,6 +79,10 @@ type ChannelConfigSurface = {
   schema: Record<string, unknown>;
   uiHints?: Record<string, PluginConfigUiHint>;
 };
+
+logStartupTrace(
+  `module evaluation complete at ${Date.now() - bundledPluginMetadataModuleTraceStart}ms`,
+);
 
 const bundledPluginMetadataCache = new Map<string, readonly BundledPluginMetadata[]>();
 const jitiLoaders = new Map<string, ReturnType<typeof createJiti>>();

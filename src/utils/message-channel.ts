@@ -18,12 +18,24 @@ import {
   normalizeGatewayClientName,
 } from "../gateway/protocol/client-info.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] utils/message-channel: ${message}`);
+}
+
+const messageChannelModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 export const INTERNAL_MESSAGE_CHANNEL = "webchat" as const;
 export type InternalMessageChannel = typeof INTERNAL_MESSAGE_CHANNEL;
 
 export { GATEWAY_CLIENT_NAMES, GATEWAY_CLIENT_MODES };
 export type { GatewayClientName, GatewayClientMode };
 export { normalizeGatewayClientName, normalizeGatewayClientMode };
+
+logStartupTrace(`module evaluation complete at ${Date.now() - messageChannelModuleTraceStart}ms`);
 
 type GatewayClientInfoLike = {
   mode?: string | null;
