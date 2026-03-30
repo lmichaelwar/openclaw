@@ -32,6 +32,16 @@ import { findLegacyConfigIssues } from "./legacy.js";
 import type { OpenClawConfig, ConfigValidationIssue } from "./types.js";
 import { OpenClawSchema } from "./zod-schema.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] config/validation: ${message}`);
+}
+
+const configValidationModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 const LEGACY_REMOVED_PLUGIN_IDS = new Set(["google-antigravity-auth", "google-gemini-cli-auth"]);
 
 type UnknownIssueRecord = Record<string, unknown>;
@@ -44,6 +54,10 @@ type AllowedValuesCollection = {
 type JsonSchemaNode = Record<string, unknown>;
 
 const CUSTOM_EXPECTED_ONE_OF_RE = /expected one of ((?:"[^"]+"(?:\|"?[^"]+"?)*)+)/i;
+
+logStartupTrace(
+  `module evaluation complete at ${Date.now() - configValidationModuleTraceStart}ms`,
+);
 
 function toIssueRecord(value: unknown): UnknownIssueRecord | null {
   if (!value || typeof value !== "object") {
