@@ -23,6 +23,13 @@ import { applyCliProfileEnv, parseCliProfileArgs } from "./profile.js";
 import { tryRouteCli } from "./route.js";
 import { normalizeWindowsArgv } from "./windows-argv.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] run-main: ${message}`);
+}
+
 async function closeCliMemoryManagers(): Promise<void> {
   if (!hasMemoryRuntime()) {
     return;
@@ -118,6 +125,11 @@ function shouldLoadCliDotEnv(env: NodeJS.ProcessEnv = process.env): boolean {
 }
 
 export async function runCli(argv: string[] = process.argv) {
+  const traceStart = Date.now();
+  const trace = (message: string) => {
+    logStartupTrace(`${message} at ${Date.now() - traceStart}ms`);
+  };
+  trace("runCli begin");
   const originalArgv = normalizeWindowsArgv(argv);
   const parsedContainer = parseCliContainerArgs(originalArgv);
   if (!parsedContainer.ok) {
@@ -146,12 +158,16 @@ export async function runCli(argv: string[] = process.argv) {
   let normalizedArgv = parsedProfile.argv;
 
   if (shouldLoadCliDotEnv()) {
+    trace("loading dotenv");
     const { loadCliDotEnv } = await import("./dotenv.js");
     loadCliDotEnv({ quiet: true });
+    trace("dotenv loaded");
   }
   normalizeEnv();
+  trace("env normalized");
   if (shouldEnsureCliPath(normalizedArgv)) {
     ensureOpenClawCliOnPath();
+    trace("cli path ensured");
   }
 
   // Enforce the minimum supported runtime before doing any work.
@@ -164,15 +180,20 @@ export async function runCli(argv: string[] = process.argv) {
       return;
     }
 
+    trace("before tryRouteCli");
     if (await tryRouteCli(normalizedArgv)) {
+      trace("tryRouteCli handled");
       return;
     }
+    trace("tryRouteCli fell through");
 
     // Capture all console output into structured logs while keeping stdout/stderr behavior.
     enableConsoleCapture();
 
     const { buildProgram } = await import("./program.js");
+    trace("program module imported");
     const program = buildProgram();
+    trace("program built");
     const { installUnhandledRejectionHandler } = await import("../infra/unhandled-rejections.js");
 
     // Global error handlers to prevent silent crashes from unhandled rejections/exceptions.
@@ -193,10 +214,14 @@ export async function runCli(argv: string[] = process.argv) {
       const ctx = getProgramContext(program);
       if (ctx) {
         const { registerCoreCliByName } = await import("./program/command-registry.js");
+        trace(`registering core cli ${primary}`);
         await registerCoreCliByName(program, ctx, primary, parseArgv);
+        trace(`registered core cli ${primary}`);
       }
       const { registerSubCliByName } = await import("./program/register.subclis.js");
+      trace(`registering subcli ${primary}`);
       await registerSubCliByName(program, primary);
+      trace(`registered subcli ${primary}`);
     }
 
     const hasBuiltinPrimary =
@@ -227,6 +252,7 @@ export async function runCli(argv: string[] = process.argv) {
     }
 
     await program.parseAsync(parseArgv);
+    trace("program parse complete");
   } finally {
     await closeCliMemoryManagers();
   }

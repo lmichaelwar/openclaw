@@ -1,30 +1,19 @@
 import type { Command } from "commander";
-import { gatewayStatusCommand } from "../../commands/gateway-status.js";
-import { formatHealthChannelLines, type HealthSummary } from "../../commands/health.js";
-import { readBestEffortConfig } from "../../config/config.js";
-import { discoverGatewayBeacons } from "../../infra/bonjour-discovery.js";
 import type { CostUsageSummary } from "../../infra/session-cost-usage.js";
-import { resolveWideAreaDiscoveryDomain } from "../../infra/widearea-dns.js";
 import { defaultRuntime } from "../../runtime.js";
-import { styleHealthChannelLine } from "../../terminal/health-style.js";
 import { formatDocsLink } from "../../terminal/links.js";
 import { colorize, isRich, theme } from "../../terminal/theme.js";
-import { formatTokenCount, formatUsd } from "../../utils/usage-format.js";
 import { runCommandWithRuntime } from "../cli-utils.js";
 import { inheritOptionFromParent } from "../command-options.js";
-import { addGatewayServiceCommands } from "../daemon-cli.js";
 import { formatHelpExamples } from "../help-format.js";
-import { withProgress } from "../progress.js";
-import { callGatewayCli, gatewayCallOpts } from "./call.js";
 import type { GatewayDiscoverOpts } from "./discover.js";
-import {
-  dedupeBeacons,
-  parseDiscoverTimeoutMs,
-  pickBeaconHost,
-  pickGatewayPort,
-  renderBeaconLines,
-} from "./discover.js";
-import { addGatewayRunCommand } from "./run.js";
+
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] gateway-cli/register: ${message}`);
+}
 
 function runGatewayCommand(action: () => Promise<void>, label?: string) {
   return runCommandWithRuntime(defaultRuntime, action, (err) => {
@@ -60,7 +49,12 @@ function resolveGatewayRpcOptions<T extends { token?: string; password?: string 
   };
 }
 
-function renderCostUsageSummary(summary: CostUsageSummary, days: number, rich: boolean): string[] {
+async function renderCostUsageSummary(
+  summary: CostUsageSummary,
+  days: number,
+  rich: boolean,
+): Promise<string[]> {
+  const { formatTokenCount, formatUsd } = await import("../../utils/usage-format.js");
   const totalCost = formatUsd(summary.totals.totalCost) ?? "$0.00";
   const totalTokens = formatTokenCount(summary.totals.totalTokens) ?? "0";
   const lines = [
@@ -86,7 +80,10 @@ function renderCostUsageSummary(summary: CostUsageSummary, days: number, rich: b
   return lines;
 }
 
-export function registerGatewayCli(program: Command) {
+export async function registerGatewayCli(program: Command) {
+  logStartupTrace("registerGatewayCli begin");
+  const [{ addGatewayRunCommand }, { addGatewayServiceCommands }, { gatewayCallOpts }] =
+    await Promise.all([import("./run.js"), import("../daemon-cli.js"), import("./call.js")]);
   const gateway = addGatewayRunCommand(
     program
       .command("gateway")
@@ -119,6 +116,10 @@ export function registerGatewayCli(program: Command) {
       .option("--params <json>", "JSON object string for params", "{}")
       .action(async (method, opts, command) => {
         await runGatewayCommand(async () => {
+          const [{ readBestEffortConfig }, { callGatewayCli }] = await Promise.all([
+            import("../../config/config.js"),
+            import("./call.js"),
+          ]);
           const rpcOpts = resolveGatewayRpcOptions(opts, command);
           const config = await readBestEffortConfig();
           const params = JSON.parse(String(opts.params ?? "{}"));
@@ -143,6 +144,10 @@ export function registerGatewayCli(program: Command) {
       .option("--days <days>", "Number of days to include", "30")
       .action(async (opts, command) => {
         await runGatewayCommand(async () => {
+          const [{ readBestEffortConfig }, { callGatewayCli }] = await Promise.all([
+            import("../../config/config.js"),
+            import("./call.js"),
+          ]);
           const rpcOpts = resolveGatewayRpcOptions(opts, command);
           const days = parseDaysOption(opts.days);
           const config = await readBestEffortConfig();
@@ -153,7 +158,7 @@ export function registerGatewayCli(program: Command) {
           }
           const rich = isRich();
           const summary = result as CostUsageSummary;
-          for (const line of renderCostUsageSummary(summary, days, rich)) {
+          for (const line of await renderCostUsageSummary(summary, days, rich)) {
             defaultRuntime.log(line);
           }
         }, "Gateway usage cost failed");
@@ -166,6 +171,13 @@ export function registerGatewayCli(program: Command) {
       .description("Fetch Gateway health")
       .action(async (opts, command) => {
         await runGatewayCommand(async () => {
+          const [{ readBestEffortConfig }, { callGatewayCli }, { formatHealthChannelLines }] =
+            await Promise.all([
+              import("../../config/config.js"),
+              import("./call.js"),
+              import("../../commands/health.js"),
+            ]);
+          const { styleHealthChannelLine } = await import("../../terminal/health-style.js");
           const rpcOpts = resolveGatewayRpcOptions(opts, command);
           const config = await readBestEffortConfig();
           const result = await callGatewayCli("health", { ...rpcOpts, config });
@@ -181,7 +193,9 @@ export function registerGatewayCli(program: Command) {
             `${colorize(rich, theme.success, "OK")}${durationMs != null ? ` (${durationMs}ms)` : ""}`,
           );
           if (obj.channels && typeof obj.channels === "object") {
-            for (const line of formatHealthChannelLines(obj as HealthSummary)) {
+            for (const line of formatHealthChannelLines(
+              obj as import("../../commands/health.js").HealthSummary,
+            )) {
               defaultRuntime.log(styleHealthChannelLine(line, rich));
             }
           }
@@ -202,6 +216,7 @@ export function registerGatewayCli(program: Command) {
     .option("--json", "Output JSON", false)
     .action(async (opts, command) => {
       await runGatewayCommand(async () => {
+        const { gatewayStatusCommand } = await import("../../commands/gateway-status.js");
         const rpcOpts = resolveGatewayRpcOptions(opts, command);
         await gatewayStatusCommand(rpcOpts, defaultRuntime);
       });
@@ -214,6 +229,26 @@ export function registerGatewayCli(program: Command) {
     .option("--json", "Output JSON", false)
     .action(async (opts: GatewayDiscoverOpts) => {
       await runGatewayCommand(async () => {
+        const [
+          { readBestEffortConfig },
+          { discoverGatewayBeacons },
+          { resolveWideAreaDiscoveryDomain },
+          { withProgress },
+          discoverHelpers,
+        ] = await Promise.all([
+          import("../../config/config.js"),
+          import("../../infra/bonjour-discovery.js"),
+          import("../../infra/widearea-dns.js"),
+          import("../progress.js"),
+          import("./discover.js"),
+        ]);
+        const {
+          dedupeBeacons,
+          parseDiscoverTimeoutMs,
+          pickBeaconHost,
+          pickGatewayPort,
+          renderBeaconLines,
+        } = discoverHelpers;
         const cfg = await readBestEffortConfig();
         const wideAreaDomain = resolveWideAreaDiscoveryDomain({
           configDomain: cfg.discovery?.wideArea?.domain,
@@ -271,4 +306,5 @@ export function registerGatewayCli(program: Command) {
         }
       }, "gateway discover failed");
     });
+  logStartupTrace("registerGatewayCli complete");
 }
