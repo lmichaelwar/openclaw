@@ -56,9 +56,21 @@ import {
 } from "./validation.js";
 import { shouldWarnOnTouchedVersion } from "./version.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] config/io: ${message}`);
+}
+
+const configIoModuleTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 // Re-export for backwards compatibility
 export { CircularIncludeError, ConfigIncludeError } from "./includes.js";
 export { MissingEnvVarError } from "./env-substitution.js";
+
+logStartupTrace(`module evaluation complete at ${Date.now() - configIoModuleTraceStart}ms`);
 
 const SHELL_ENV_EXPECTED_KEYS = [
   "OPENAI_API_KEY",
