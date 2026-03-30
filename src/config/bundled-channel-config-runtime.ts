@@ -8,6 +8,16 @@ import { listBundledPluginMetadata } from "../plugins/bundled-plugin-metadata.js
 import { MSTeamsConfigSchema } from "./zod-schema.providers-core.js";
 import { WhatsAppConfigSchema } from "./zod-schema.providers-whatsapp.js";
 
+function logStartupTrace(message: string): void {
+  if (process.env.OPENCLAW_STARTUP_TRACE !== "1") {
+    return;
+  }
+  console.error(`[startup-trace] config/bundled-channel-config-runtime: ${message}`);
+}
+
+const bundledChannelConfigRuntimeTraceStart = Date.now();
+logStartupTrace("module evaluation begin");
+
 type BundledChannelRuntimeMap = ReadonlyMap<string, ChannelConfigRuntimeSchema>;
 type BundledChannelConfigSchemaMap = ReadonlyMap<string, ChannelConfigSchema>;
 type BundledChannelPluginShape = {
@@ -18,6 +28,10 @@ type BundledChannelMaps = {
   runtimeMap: Map<string, ChannelConfigRuntimeSchema>;
   configSchemaMap: Map<string, ChannelConfigSchema>;
 };
+
+logStartupTrace(
+  `module evaluation complete at ${Date.now() - bundledChannelConfigRuntimeTraceStart}ms`,
+);
 
 const staticBundledChannelSchemas = new Map<string, ChannelConfigSchema>([
   ["msteams", buildChannelConfigSchema(MSTeamsConfigSchema)],
